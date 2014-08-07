@@ -2,7 +2,7 @@
 # initialize it with an array of the files you want to zip
 module Zipline
   class ZipGenerator
-    # takes an array of pairs [[uploader, filename], ... ]
+    # takes an array of triples [[size, download_url, filename], ... ]
     def initialize(files)
       @files = files
     end
@@ -15,67 +15,29 @@ module Zipline
     def each(&block)
       output = new_output(&block)
       OutputStream.open(output) do |zip|
-        @files.each {|file, name| handle_file(zip, file, name) }
+        @files.each {|size, download_url, name| handle_file(zip, size, download_url, name) }
       end
     end
 
     def handle_file(zip, file, name)
-      file = normalize(file)
       name = uniquify_name(name)
       write_file(zip, file, name)
-    end
-
-    def normalize(file)
-      unless is_io?(file)
-        if file.respond_to?(:url) && (!defined?(::Paperclip::Attachment) || !file.is_a?(::Paperclip::Attachment))
-          file = file
-        elsif file.respond_to? :file
-          file = File.open(file.file)
-        elsif file.respond_to? :path
-          file = File.open(file.path)
-        else
-          raise(ArgumentError, 'Bad File/Stream')
-        end
-      end
-      file
     end
 
     def new_output(&block)
       FakeStream.new(&block)
     end
 
-    def write_file(zip, file, name)
-      size = get_size(file)
+    def write_file(zip, size, download_url, name)
       zip.put_next_entry name, size
 
-      if is_io?(file)
-        while buffer = file.read(2048)
-          zip << buffer
+      c = Curl::Easy.new(download_url) do |curl|
+        curl.on_body do |data|
+          zip << data
+          data.bytesize
         end
-      else
-        the_remote_url = file.url(Time.now + 1.minutes)
-        c = Curl::Easy.new(the_remote_url) do |curl|
-          curl.on_body do |data|
-            zip << data
-            data.bytesize
-          end
-        end
-        c.perform
       end
-    end
-
-    def get_size(file)
-      if is_io?(file) || file.respond_to?(:size)
-        file.size
-      elsif file.respond_to? :content_length
-        file.content_length
-      else
-        throw 'cannot determine file size'
-      end
-    end
-
-    def is_io?(file)
-      file.is_a?(IO) || (defined?(StringIO) && file.is_a?(StringIO))
+      c.perform
     end
 
     def uniquify_name(name)
