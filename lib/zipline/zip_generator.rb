@@ -19,9 +19,9 @@ module Zipline
       end
     end
 
-    def handle_file(zip, file, name)
+    def handle_file(zip, size, download_url, name)
       name = uniquify_name(name)
-      write_file(zip, file, name)
+      write_file(zip, size, download_url, name)
     end
 
     def new_output(&block)
