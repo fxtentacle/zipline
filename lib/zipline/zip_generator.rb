@@ -31,6 +31,10 @@ module Zipline
     def write_file(zip, size, download_url, name)
       zip.put_next_entry name, size
 
+      if download_url.respond_to :call
+        download_url = download_url.call()
+      end
+
       c = Curl::Easy.new(download_url) do |curl|
         curl.on_body do |data|
           zip << data
