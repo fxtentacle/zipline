@@ -31,17 +31,20 @@ module Zipline
     def write_file(zip, size, download_url, name)
       zip.put_next_entry name, size
 
-      if download_url.respond_to? :call
-        download_url = download_url.call()
-      end
-
-      c = Curl::Easy.new(download_url) do |curl|
-        curl.on_body do |data|
-          zip << data
-          data.bytesize
+      if download_url.respond_to? :get_data
+        zip << download_url.get_data()
+      else        
+        if download_url.respond_to? :call
+          download_url = download_url.call()
         end
+        c = Curl::Easy.new(download_url) do |curl|
+          curl.on_body do |data|
+            zip << data
+            data.bytesize
+          end
+        end
+        c.perform
       end
-      c.perform
     end
 
     def uniquify_name(name)
