@@ -29,11 +29,11 @@ module Zipline
     end
 
     def write_file(zip, size, download_url, name)
-      zip.put_next_entry name, size
-
       if download_url.respond_to? :get_data
+        zip.put_next_entry name, download_url.get_size()
         zip << download_url.get_data()
       else        
+        zip.put_next_entry name, size
         if download_url.respond_to? :call
           download_url = download_url.call()
         end
